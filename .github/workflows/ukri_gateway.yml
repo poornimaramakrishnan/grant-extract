@@ -15,11 +15,19 @@ on:
         description: "End date (YYYY-MM-DD). Default: 2024-09-30"
         required: false
         default: "2024-09-30"
+      max_pages:
+        description: "Max project pages to scan (default: 30)"
+        required: false
+        default: "30"
+      skip_pi:
+        description: "Skip PI name lookups for faster bulk runs (true/false)"
+        required: false
+        default: "false"
 
 jobs:
   extract:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - name: Create output directories
         run: mkdir -p output logs
@@ -28,7 +36,12 @@ jobs:
         run: |
           FROM="${{ github.event.inputs.date_from || '2024-06-01' }}"
           TO="${{ github.event.inputs.date_to || '2024-09-30' }}"
+          MAX_PAGES="${{ github.event.inputs.max_pages || '30' }}"
+          SKIP_PI="${{ github.event.inputs.skip_pi || 'false' }}"
           docker run --rm \
+            -e UKRI_MAX_PAGES="$MAX_PAGES" \
+            -e UKRI_SKIP_PI="$SKIP_PI" \
+            -e UKRI_THROTTLE="0.3" \
             -v ${{ github.workspace }}/output:/app/output \
             -v ${{ github.workspace }}/logs:/app/logs \
             ghcr.io/poornimaramakrishnan/grant-extract:latest \
