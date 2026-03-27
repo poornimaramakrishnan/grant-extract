@@ -1,0 +1,39 @@
+# docker-compose.yml
+# Example: run any of the 4 grant extractors using the published Docker image.
+#
+# Usage:
+#   docker compose run --rm nih --date 2024-06-01
+#   docker compose run --rm nsf --date 2024-06-01
+#   docker compose run --rm cordis --date 2024-06-01
+#   docker compose run --rm ukri --date 2024-06-01
+#
+# Outputs land in ./output/ and logs in ./logs/ on your host.
+
+services:
+  nih:
+    image: ghcr.io/poornimaramakrishnan/grant-extract:latest
+    command: ["python", "-m", "grant_extract.scripts.nih_reporter"]
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+
+  nsf:
+    image: ghcr.io/poornimaramakrishnan/grant-extract:latest
+    command: ["python", "-m", "grant_extract.scripts.nsf_awards"]
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+
+  cordis:
+    image: ghcr.io/poornimaramakrishnan/grant-extract:latest
+    command: ["python", "-m", "grant_extract.scripts.cordis_eu"]
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+
+  ukri:
+    image: ghcr.io/poornimaramakrishnan/grant-extract:latest
+    command: ["python", "-m", "grant_extract.scripts.ukri_gateway"]
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
