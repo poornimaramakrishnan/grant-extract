@@ -1,0 +1,46 @@
+# .github/workflows/nsf_awards.yml
+# Extracts grants from the NSF Awards API using the published Docker image.
+name: NSF Awards Extraction
+
+on:
+  schedule:
+    - cron: "45 6 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Date to extract (YYYY-MM-DD). Leave empty for yesterday."
+        required: false
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create output directories
+        run: mkdir -p output logs
+
+      - name: Run NSF Awards extraction
+        run: |
+          DATE_ARG=""
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            DATE_ARG="--date ${{ github.event.inputs.date }}"
+          fi
+          docker run --rm \
+            -v ${{ github.workspace }}/output:/app/output \
+            -v ${{ github.workspace }}/logs:/app/logs \
+            ghcr.io/poornimaramakrishnan/grant-extract:latest \
+            python -m grant_extract.scripts.nsf_awards $DATE_ARG
+
+      - name: Upload .xlsx artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nsf-awards-grants
+          path: output/*.xlsx
+          retention-days: 30
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nsf-awards-logs
+          path: logs/*.log
+          retention-days: 7
