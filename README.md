@@ -1,6 +1,10 @@
 # Government Grant API Extraction Scripts — Docker Image
 
 > **Pre-built Docker image to extract grant data from four major government research-funding APIs.**
+>
+> Built and maintained by **[Poornima Ramakrishnan](https://github.com/poornimaramakrishnan)** · [poornima2489@gmail.com](mailto:poornima2489@gmail.com)
+>
+> 🐳 Image: `ghcr.io/poornimaramakrishnan/grant-extract:latest` &nbsp;|&nbsp; 📦 Source: [`grant-extract-src`](https://github.com/poornimaramakrishnan/grant-extract-src) (private)
 
 | Source | API |
 |--------|-----|
@@ -124,4 +128,4 @@ Files are named `<SOURCE>_YYYYMMDD.xlsx` and written to `/app/output/`.
 
 ## 📄 License
 
-MIT
+MIT — Copyright © 2026 [Poornima Ramakrishnan](https://github.com/poornimaramakrishnan). See [LICENSE](LICENSE).
