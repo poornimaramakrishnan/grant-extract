@@ -7,28 +7,33 @@ on:
     - cron: "15 7 * * *"
   workflow_dispatch:
     inputs:
-      date:
-        description: "Date to extract (YYYY-MM-DD). Leave empty for yesterday."
+      date_from:
+        description: "Start date (YYYY-MM-DD). Default: 2024-06-01"
         required: false
+        default: "2024-06-01"
+      date_to:
+        description: "End date (YYYY-MM-DD). Default: 2024-09-30"
+        required: false
+        default: "2024-09-30"
 
 jobs:
   extract:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Create output directories
         run: mkdir -p output logs
 
       - name: Run UKRI Gateway extraction
         run: |
-          DATE_ARG=""
-          if [ -n "${{ github.event.inputs.date }}" ]; then
-            DATE_ARG="--date ${{ github.event.inputs.date }}"
-          fi
+          FROM="${{ github.event.inputs.date_from || '2024-06-01' }}"
+          TO="${{ github.event.inputs.date_to || '2024-09-30' }}"
           docker run --rm \
             -v ${{ github.workspace }}/output:/app/output \
             -v ${{ github.workspace }}/logs:/app/logs \
             ghcr.io/poornimaramakrishnan/grant-extract:latest \
-            python -m grant_extract.scripts.ukri_gateway $DATE_ARG
+            python -m grant_extract.scripts.ukri_gateway \
+              --date-from "$FROM" --date-to "$TO"
 
       - name: Upload .xlsx artifact
         uses: actions/upload-artifact@v4

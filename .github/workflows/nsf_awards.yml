@@ -7,9 +7,14 @@ on:
     - cron: "45 6 * * *"
   workflow_dispatch:
     inputs:
-      date:
-        description: "Date to extract (YYYY-MM-DD). Leave empty for yesterday."
+      date_from:
+        description: "Start date (YYYY-MM-DD). Default: 2025-03-01"
         required: false
+        default: "2025-03-01"
+      date_to:
+        description: "End date (YYYY-MM-DD). Default: 2025-03-15"
+        required: false
+        default: "2025-03-15"
 
 jobs:
   extract:
@@ -20,15 +25,14 @@ jobs:
 
       - name: Run NSF Awards extraction
         run: |
-          DATE_ARG=""
-          if [ -n "${{ github.event.inputs.date }}" ]; then
-            DATE_ARG="--date ${{ github.event.inputs.date }}"
-          fi
+          FROM="${{ github.event.inputs.date_from || '2025-03-01' }}"
+          TO="${{ github.event.inputs.date_to || '2025-03-15' }}"
           docker run --rm \
             -v ${{ github.workspace }}/output:/app/output \
             -v ${{ github.workspace }}/logs:/app/logs \
             ghcr.io/poornimaramakrishnan/grant-extract:latest \
-            python -m grant_extract.scripts.nsf_awards $DATE_ARG
+            python -m grant_extract.scripts.nsf_awards \
+              --date-from "$FROM" --date-to "$TO"
 
       - name: Upload .xlsx artifact
         uses: actions/upload-artifact@v4
