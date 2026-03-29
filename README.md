@@ -1,17 +1,41 @@
 # Government Grant API Extraction Scripts — Docker Image
 
 > **Pre-built Docker image to extract grant data from four major government research-funding APIs.**
->
-> Built and maintained by **[Poornima Ramakrishnan](https://github.com/poornimaramakrishnan)** · [poornima2489@gmail.com](mailto:poornima2489@gmail.com)
->
-> 🐳 Image: `ghcr.io/poornimaramakrishnan/grant-extract:latest` &nbsp;|&nbsp; 📦 Source: [`grant-extract-src`](https://github.com/poornimaramakrishnan/grant-extract-src) (private)
+> **Includes a DuckDB analytical warehouse and a browser-based SQL Playground.**
 
-| Source | API |
-|--------|-----|
-| 🇺🇸 **NIH RePORTER** | `api.reporter.nih.gov/v2/projects/search` |
-| 🇺🇸 **NSF Awards** | `api.nsf.gov/services/v1/awards.json` |
-| 🇪🇺 **CORDIS (EU)** | `cordis.europa.eu/search?format=json` |
-| 🇬🇧 **UKRI Gateway** | `gtr.ukri.org/gtr/api/projects` |
+| Source | API | Coverage |
+|--------|-----|----------|
+| 🇺🇸 **NIH RePORTER** | `api.reporter.nih.gov/v2/projects/search` | 2015–present |
+| 🇺🇸 **NSF Awards** | `api.nsf.gov/services/v1/awards.json` | 2015–present |
+| 🇪🇺 **CORDIS (EU)** | `cordis.europa.eu/search?format=json` | 2015–present |
+| 🇬🇧 **UKRI Gateway** | `gtr.ukri.org/gtr/api/projects` | 2015–present |
+
+---
+
+## 🔬 Live SQL Playground
+
+> **[▶ Launch SQL Playground](https://poornimaramakrishnan.github.io/grant-extract/)**
+
+Explore 200K+ government research grants in your browser — no server, no sign-up, 100% client-side.
+
+- **DuckDB-WASM** — full analytical SQL engine running in your browser
+- **45+ pre-built queries** across 15 categories: cross-source analytics, geographic analysis, keyword/topic mining, funding trends, strategic insights, and more
+- **4 data sources** unified: NIH, NSF, CORDIS, UKRI
+- **Interactive** — edit any query, run custom SQL, export results
+
+### What can you explore?
+
+| Category | Examples |
+|----------|----------|
+| 🌍 Cross-Source | Global funding comparison, top institutions worldwide, cross-border collaborators |
+| 🏛️ NIH Deep Dive | Funding by institute, R01 vs R21 mechanisms, top PIs, funding by US state |
+| 🔬 NSF Deep Dive | Funding by directorate, active vs expired awards, top institutions |
+| 🇪🇺 CORDIS Deep Dive | EU funding by country, programme distribution, top organisations |
+| 🇬🇧 UKRI Deep Dive | Funding by research council, grant status, top UK organisations |
+| 📈 Trends | Year-over-year, quarterly velocity, monthly cadence, grant size distribution |
+| 🔑 Keywords | AI/ML, climate, COVID-19, cancer, neuroscience, quantum computing |
+| 🧠 Strategic | Emerging themes (2023 vs 2015), innovation pulse, US vs EU vs UK macro |
+| 📊 Data Quality | Field completeness, duplicate detection |
 
 ---
 
@@ -126,6 +150,46 @@ Files are named `<SOURCE>_YYYYMMDD.xlsx` and written to `/app/output/`.
 
 ---
 
-## 📄 License
+## �️ DuckDB Analytical Warehouse
 
-MIT — Copyright © 2026 [Poornima Ramakrishnan](https://github.com/poornimaramakrishnan). See [LICENSE](LICENSE).
+Beyond Excel extraction, this project includes a **DuckDB-powered analytical warehouse** that:
+
+- **Ingests all 4 APIs** into normalised DuckDB tables with full schema coverage
+- **Producer/consumer parallel engine** — multi-threaded fetchers with single-writer for data integrity
+- **ETL tracking** — chunk-level progress with `--resume` support for fault-tolerant backfills
+- **Unified view** — `grant_unified` merges all 4 sources into a single queryable view
+- **Smart deduplication** — upsert-on-conflict prevents duplicate records
+- **Parquet export** — for browser-based analytics via DuckDB-WASM
+
+### Architecture
+
+```
+┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐
+│ NIH API    │  │ NSF API    │  │ CORDIS API │  │ UKRI API   │
+└─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
+      │               │               │               │
+      └───────┬───────┴───────┬───────┘               │
+              │               │                       │
+        ┌─────▼─────┐  ┌─────▼─────┐           ┌─────▼─────┐
+        │ Fetcher   │  │ Fetcher   │  ...       │ Fetcher   │
+        │ Thread    │  │ Thread    │            │ Thread    │
+        └─────┬─────┘  └─────┬─────┘           └─────┬─────┘
+              │               │                       │
+              └───────┬───────┴───────────────────────┘
+                      │  queue.Queue (bounded)
+                ┌─────▼─────┐
+                │  Writer   │
+                │  Thread   │──► DuckDB (single file)
+                └───────────┘
+                      │
+                ┌─────▼─────┐
+                │  Parquet  │──► docs/ (for DuckDB-WASM)
+                │  Export   │
+                └───────────┘
+```
+
+---
+
+## �📄 License
+
+MIT
