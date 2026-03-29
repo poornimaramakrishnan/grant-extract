@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Government Grant Analytics SQL Playground</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149;
+    --nih: #58a6ff; --nsf: #3fb950; --cordis: #d29922; --ukri: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 48px 24px 32px; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+  .hero h1 { font-size: 2.2rem; margin-bottom: 12px; }
+  .hero h1 .icon { font-size: 2.5rem; }
+  .hero .subtitle { color: var(--muted); font-size: 1.1rem; max-width: 700px; margin: 0 auto 20px; }
+  .stats-bar { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; margin-top: 16px; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 1.8rem; font-weight: 700; color: var(--accent); display: block; }
+  .stat .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Source badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;
+           font-weight: 600; margin: 2px; }
+  .badge-nih { background: rgba(88,166,255,0.15); color: var(--nih); border: 1px solid rgba(88,166,255,0.3); }
+  .badge-nsf { background: rgba(63,185,80,0.15); color: var(--nsf); border: 1px solid rgba(63,185,80,0.3); }
+  .badge-cordis { background: rgba(210,153,34,0.15); color: var(--cordis); border: 1px solid rgba(210,153,34,0.3); }
+  .badge-ukri { background: rgba(188,140,255,0.15); color: var(--ukri); border: 1px solid rgba(188,140,255,0.3); }
+
+  /* Sections */
+  .section { margin-bottom: 40px; }
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+                    padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .section-header h2 { font-size: 1.4rem; }
+  .section-header .count { background: var(--surface); color: var(--muted); padding: 2px 10px;
+                           border-radius: 12px; font-size: 0.85rem; }
+  .run-all-btn { margin-left: auto; background: var(--accent); color: #000; border: none;
+                 padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+  .run-all-btn:hover { opacity: 0.85; }
+
+  /* Query card */
+  .query-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+                margin-bottom: 20px; overflow: hidden; }
+  .query-title { padding: 14px 18px 8px; display: flex; align-items: flex-start; gap: 8px; }
+  .query-title h3 { font-size: 1.05rem; flex: 1; }
+  .query-desc { padding: 0 18px 12px; color: var(--muted); font-size: 0.9rem; }
+  .query-sql { position: relative; }
+  .query-sql textarea { width: 100%; min-height: 100px; background: #0d1117; color: #e6edf3;
+                        border: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+                        padding: 14px 18px; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+                        font-size: 0.85rem; line-height: 1.5; resize: vertical; }
+  .query-sql textarea:focus { outline: 1px solid var(--accent); }
+  .query-actions { display: flex; gap: 8px; padding: 10px 18px; align-items: center; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; }
+  .btn-run { background: var(--green); color: #000; }
+  .btn-run:hover { opacity: 0.85; }
+  .btn-copy { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-copy:hover { color: var(--text); border-color: var(--muted); }
+  .btn-reset { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-reset:hover { color: var(--text); border-color: var(--muted); }
+  .query-time { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
+
+  /* Results table */
+  .result-container { padding: 0 18px 14px; overflow-x: auto; }
+  .result-placeholder { color: var(--muted); font-style: italic; padding: 20px 0; text-align: center; }
+  .result-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .result-table th { background: #21262d; color: var(--accent); text-align: left; padding: 8px 12px;
+                     border-bottom: 2px solid var(--border); white-space: nowrap; position: sticky; top: 0; }
+  .result-table td { padding: 6px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .result-table tr:hover td { background: rgba(88,166,255,0.06); }
+  .result-count { color: var(--muted); font-size: 0.8rem; padding: 6px 0; }
+  .result-error { color: var(--red); padding: 12px 0; }
+
+  /* TOC */
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+         padding: 20px 24px; margin-bottom: 32px; }
+  .toc h3 { margin-bottom: 12px; font-size: 1.1rem; }
+  .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+  .toc a { color: var(--accent); text-decoration: none; font-size: 0.9rem; display: block; padding: 4px 0; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* Loading overlay */
+  #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg);
+             display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+  #loading .spinner { width: 50px; height: 50px; border: 4px solid var(--border);
+                      border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+  #loading p { margin-top: 16px; color: var(--muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading.hidden { display: none; }
+
+  /* Footer */
+  .footer { text-align: center; padding: 32px; color: var(--muted); font-size: 0.85rem;
+            border-top: 1px solid var(--border); margin-top: 40px; }
+  .footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p id="loading-msg">Initialising DuckDB WASM...</p>
+  <p id="loading-detail" style="color:var(--muted);font-size:0.8rem;margin-top:4px"></p>
+</div>
+
+<div class="container">
+
+<!-- Hero -->
+<div class="hero">
+  <h1><span class="icon">🏛️</span> Government Grant Analytics SQL Playground</h1>
+  <p class="subtitle">
+    Interactive analytics across <strong>four major government research-funding APIs</strong> —
+    NIH RePORTER, NSF Awards, CORDIS EU &amp; UKRI Gateway — powered by
+    <a href="https://duckdb.org/docs/api/wasm/overview" target="_blank" style="color:var(--accent)">DuckDB-WASM</a>.
+    No server, no sign-up, 100% client-side.
+  </p>
+  <div>
+    <span class="badge badge-nih">🇺🇸 NIH</span>
+    <span class="badge badge-nsf">🇺🇸 NSF</span>
+    <span class="badge badge-cordis">🇪🇺 CORDIS</span>
+    <span class="badge badge-ukri">🇬🇧 UKRI</span>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><span class="num" id="stat-queries">0</span><span class="label">Queries</span></div>
+    <div class="stat"><span class="num" id="stat-sections">0</span><span class="label">Categories</span></div>
+    <div class="stat"><span class="num" id="stat-sources">4</span><span class="label">Data Sources</span></div>
+    <div class="stat"><span class="num" id="stat-rows">—</span><span class="label">Grant Records</span></div>
+    <div class="stat"><span class="num" id="stat-size">—</span><span class="label">Database</span></div>
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc" id="toc">
+  <h3>📑 Table of Contents</h3>
+  <div class="toc-grid" id="toc-grid"></div>
+</div>
+
+<!-- Sections rendered by JS -->
+<div id="sections"></div>
+
+<!-- Footer -->
+<div class="footer">
+  <p>Built by <a href="https://github.com/poornimaramakrishnan" target="_blank">Poornima Ramakrishnan</a> ·
+     Database loaded client-side via <a href="https://duckdb.org" target="_blank">DuckDB-WASM</a></p>
+</div>
+
+</div>
+
+<script type="module">
+import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm';
+
+// ─────────────────────────────────────────────
+// Query definitions
+// ─────────────────────────────────────────────
+const QUERIES = [
+
+// ═══════════════ DATABASE OVERVIEW ═══════════════
+{
+  section: "Database Overview",
+  title: "Table Inventory & Row Counts",
+  desc: "Bird's-eye view of every table in the grant warehouse with row counts. Run this first to confirm all 4 data sources are loaded.",
+  sql: `SELECT 'raw_nih_grants' AS table_name, count(*) AS rows FROM raw_nih_grants
+UNION ALL SELECT 'raw_nsf_awards', count(*) FROM raw_nsf_awards
+UNION ALL SELECT 'raw_cordis_projects', count(*) FROM raw_cordis_projects
+UNION ALL SELECT 'raw_ukri_projects', count(*) FROM raw_ukri_projects
+UNION ALL SELECT 'grant_unified (view)', count(*) FROM grant_unified
+ORDER BY rows DESC;`
+},
+{
+  section: "Database Overview",
+  title: "Date Coverage per Source",
+  desc: "Shows the earliest and latest award date for each source, plus total grants and funding. Reveals which date ranges are fully backfilled.",
+  sql: `SELECT source,
+       count(*) AS grants,
+       min(award_date) AS earliest,
+       max(award_date) AS latest,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       currency
+FROM grant_unified
+WHERE award_date IS NOT NULL
+GROUP BY source, currency
+ORDER BY grants DESC;`
+},
+{
+  section: "Database Overview",
+  title: "ETL Backfill Progress",
+  desc: "Shows the most recent ETL runs and their status — useful for monitoring backfill completeness.",
+  sql: `SELECT source, status, count(*) AS runs,
+       sum(records_loaded) AS total_records,
+       min(date_from) AS earliest_from,
+       max(date_to) AS latest_to
+FROM etl_runs
+GROUP BY source, status
+ORDER BY source, status;`
+},
+
+// ═══════════════ CROSS-SOURCE ANALYTICS ═══════════════
+{
+  section: "Cross-Source Analytics",
+  title: "Global Funding Comparison — All 4 Sources",
+  desc: "Head-to-head comparison of total grants, funding volume, and average grant size across NIH, NSF, CORDIS, and UKRI. The ultimate macro view of global research funding.",
+  sql: `SELECT source,
+       count(*) AS total_grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       printf('$%,.0f', avg(funding_amount)) AS avg_grant,
+       printf('$%,.0f', median(funding_amount)) AS median_grant,
+       printf('$%,.0f', max(funding_amount)) AS largest_grant,
+       currency
+FROM grant_unified
+WHERE funding_amount > 0
+GROUP BY source, currency
+ORDER BY sum(funding_amount) DESC;`
+},
+{
+  section: "Cross-Source Analytics",
+  title: "Year-over-Year Funding Trends (All Sources)",
+  desc: "Annual grant counts and total funding across all 4 sources. Shows how research funding has evolved over the decade — stimulus years, pandemic boosts, and austerity periods visible at a glance.",
+  sql: `SELECT year(award_date) AS yr,
+       source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding
+FROM grant_unified
+WHERE award_date IS NOT NULL AND year(award_date) >= 2015
+GROUP BY yr, source
+ORDER BY yr DESC, source;`
+},
+{
+  section: "Cross-Source Analytics",
+  title: "Top 25 Institutions Worldwide by Total Funding",
+  desc: "The world's best-funded research institutions across ALL sources. Johns Hopkins, Oxford, Max Planck — see who dominates global research funding.",
+  sql: `SELECT institution,
+       source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       currency,
+       min(award_date) AS first_award,
+       max(award_date) AS latest_award
+FROM grant_unified
+WHERE institution IS NOT NULL AND institution != '' AND funding_amount > 0
+GROUP BY institution, source, currency
+ORDER BY sum(funding_amount) DESC NULLS LAST
+LIMIT 25;`
+},
+{
+  section: "Cross-Source Analytics",
+  title: "Cross-Border Research — Institutions Appearing in Multiple Sources",
+  desc: "Finds institutions that receive grants from multiple funding bodies (e.g., a UK university with both UKRI and CORDIS grants). Signals truly global research collaborators.",
+  sql: `WITH multi AS (
+  SELECT institution, count(DISTINCT source) AS sources,
+         list(DISTINCT source) AS source_list,
+         count(*) AS grants,
+         printf('$%,.0f', sum(funding_amount)) AS total_funding
+  FROM grant_unified
+  WHERE institution IS NOT NULL AND institution != ''
+  GROUP BY institution
+  HAVING count(DISTINCT source) > 1
+)
+SELECT * FROM multi ORDER BY grants DESC LIMIT 25;`
+},
+
+// ═══════════════ NIH DEEP DIVE ═══════════════
+{
+  section: "NIH RePORTER Deep Dive",
+  title: "Top 20 NIH-Funded Institutions",
+  desc: "The leading US research institutions by total NIH funding. These are the powerhouses of biomedical research.",
+  sql: `SELECT org_name AS institution,
+       org_state AS state,
+       count(*) AS grants,
+       printf('$%,.0f', sum(award_amount)) AS total_funding,
+       printf('$%,.0f', avg(award_amount)) AS avg_grant,
+       count(DISTINCT contact_pi_name) AS unique_pis
+FROM raw_nih_grants
+WHERE org_name IS NOT NULL
+GROUP BY org_name, org_state
+ORDER BY sum(award_amount) DESC NULLS LAST
+LIMIT 20;`
+},
+{
+  section: "NIH RePORTER Deep Dive",
+  title: "NIH Funding by Institute (IC)",
+  desc: "Breakdown by NIH Institute/Centre (NCI, NIAID, NIMH, etc.). Shows which institutes fund the most grants and at what scale.",
+  sql: `SELECT ic_name AS institute,
+       count(*) AS grants,
+       printf('$%,.0f', sum(award_amount)) AS total_funding,
+       printf('$%,.0f', avg(award_amount)) AS avg_grant
+FROM raw_nih_grants
+WHERE ic_name IS NOT NULL
+GROUP BY ic_name
+ORDER BY sum(award_amount) DESC NULLS LAST
+LIMIT 20;`
+},
+{
+  section: "NIH RePORTER Deep Dive",
+  title: "NIH Grant Activity Types (R01, R21, U01, etc.)",
+  desc: "Distribution of NIH grant mechanisms. R01s are the gold standard of independent research funding. See how R01s compare to training grants (T32), center grants (P30), and cooperative agreements (U01).",
+  sql: `SELECT activity_code,
+       count(*) AS grants,
+       printf('$%,.0f', sum(award_amount)) AS total_funding,
+       printf('$%,.0f', avg(award_amount)) AS avg_grant,
+       printf('$%,.0f', max(award_amount)) AS max_grant
+FROM raw_nih_grants
+WHERE activity_code IS NOT NULL
+GROUP BY activity_code
+ORDER BY count(*) DESC
+LIMIT 20;`
+},
+{
+  section: "NIH RePORTER Deep Dive",
+  title: "NIH Funding by US State — Research Heatmap",
+  desc: "Total NIH funding per US state. California, Massachusetts, and New York typically dominate, but this reveals the full geographic distribution of federal biomedical research dollars.",
+  sql: `SELECT org_state AS state,
+       count(*) AS grants,
+       printf('$%,.0f', sum(award_amount)) AS total_funding,
+       printf('$%,.0f', avg(award_amount)) AS avg_grant,
+       count(DISTINCT org_name) AS institutions
+FROM raw_nih_grants
+WHERE org_state IS NOT NULL AND org_state != ''
+GROUP BY org_state
+ORDER BY sum(award_amount) DESC NULLS LAST
+LIMIT 25;`
+},
+{
+  section: "NIH RePORTER Deep Dive",
+  title: "Largest Single NIH Awards (Top 25)",
+  desc: "The biggest individual NIH grants ever awarded in our dataset. Multi-year center grants and genome projects dominate.",
+  sql: `SELECT project_num,
+       contact_pi_name AS pi,
+       org_name AS institution,
+       title[:100] AS title,
+       printf('$%,.0f', award_amount) AS amount,
+       award_notice_date AS date,
+       activity_code
+FROM raw_nih_grants
+WHERE award_amount IS NOT NULL
+ORDER BY award_amount DESC
+LIMIT 25;`
+},
+
+// ═══════════════ NSF DEEP DIVE ═══════════════
+{
+  section: "NSF Awards Deep Dive",
+  title: "Top 20 NSF-Funded Institutions",
+  desc: "Leading institutions by NSF funding. NSF focuses on fundamental science and engineering across all disciplines.",
+  sql: `SELECT awardee_name AS institution,
+       awardee_state AS state,
+       count(*) AS awards,
+       printf('$%,.0f', sum(estimated_total_amt)) AS total_funding,
+       printf('$%,.0f', avg(estimated_total_amt)) AS avg_award
+FROM raw_nsf_awards
+WHERE awardee_name IS NOT NULL
+GROUP BY awardee_name, awardee_state
+ORDER BY sum(estimated_total_amt) DESC NULLS LAST
+LIMIT 20;`
+},
+{
+  section: "NSF Awards Deep Dive",
+  title: "NSF Funding by Directorate",
+  desc: "NSF is organized into directorates (BIO, ENG, MPS, CISE, etc.). This shows which scientific directorates receive the most funding.",
+  sql: `SELECT dir_abbr AS directorate,
+       div_abbr AS division,
+       count(*) AS awards,
+       printf('$%,.0f', sum(estimated_total_amt)) AS total_funding,
+       printf('$%,.0f', avg(estimated_total_amt)) AS avg_award
+FROM raw_nsf_awards
+WHERE dir_abbr IS NOT NULL
+GROUP BY dir_abbr, div_abbr
+ORDER BY sum(estimated_total_amt) DESC NULLS LAST
+LIMIT 20;`
+},
+{
+  section: "NSF Awards Deep Dive",
+  title: "NSF Active vs Expired Awards",
+  desc: "Shows how many NSF awards are currently active versus expired, with funding breakdowns.",
+  sql: `SELECT CASE WHEN active_awd = 'true' THEN 'Active' ELSE 'Expired' END AS status,
+       count(*) AS awards,
+       printf('$%,.0f', sum(estimated_total_amt)) AS total_funding,
+       printf('$%,.0f', avg(estimated_total_amt)) AS avg_award
+FROM raw_nsf_awards
+GROUP BY status
+ORDER BY count(*) DESC;`
+},
+
+// ═══════════════ CORDIS EU DEEP DIVE ═══════════════
+{
+  section: "CORDIS EU Deep Dive",
+  title: "Top CORDIS-Funded Organisations",
+  desc: "Leading European research organisations by CORDIS (EU framework programme) funding. Includes Horizon 2020 and Horizon Europe grants.",
+  sql: `SELECT coordinator AS organisation,
+       coordinator_country AS country,
+       count(*) AS projects,
+       printf('$%,.0f', sum(total_cost)) AS total_cost,
+       printf('$%,.0f', sum(ec_contribution)) AS eu_contribution
+FROM raw_cordis_projects
+WHERE coordinator IS NOT NULL
+GROUP BY coordinator, coordinator_country
+ORDER BY sum(ec_contribution) DESC NULLS LAST
+LIMIT 20;`
+},
+{
+  section: "CORDIS EU Deep Dive",
+  title: "CORDIS Funding by Country",
+  desc: "EU research funding distribution by country. Germany, France, Netherlands, and UK (pre-Brexit) typically lead.",
+  sql: `SELECT coordinator_country AS country,
+       count(*) AS projects,
+       printf('$%,.0f', sum(ec_contribution)) AS eu_contribution,
+       printf('$%,.0f', avg(ec_contribution)) AS avg_contribution
+FROM raw_cordis_projects
+WHERE coordinator_country IS NOT NULL
+GROUP BY coordinator_country
+ORDER BY sum(ec_contribution) DESC NULLS LAST
+LIMIT 20;`
+},
+{
+  section: "CORDIS EU Deep Dive",
+  title: "CORDIS Programme Distribution",
+  desc: "Which EU Framework Programmes and funding schemes are represented in the data (Horizon 2020, Horizon Europe, ERC, MSCA, etc.).",
+  sql: `SELECT programme_code AS programme,
+       funding_scheme,
+       count(*) AS projects,
+       printf('$%,.0f', sum(ec_contribution)) AS eu_contribution
+FROM raw_cordis_projects
+WHERE programme_code IS NOT NULL
+GROUP BY programme_code, funding_scheme
+ORDER BY count(*) DESC
+LIMIT 20;`
+},
+
+// ═══════════════ UKRI DEEP DIVE ═══════════════
+{
+  section: "UKRI Gateway Deep Dive",
+  title: "Top UKRI-Funded Organisations",
+  desc: "Leading UK research organisations by UKRI (UK Research and Innovation) funding. Includes grants from EPSRC, MRC, BBSRC, AHRC, NERC and other councils.",
+  sql: `SELECT lead_org AS organisation,
+       count(*) AS grants,
+       printf('$%,.0f', sum(fund_amount)) AS total_funding,
+       printf('$%,.0f', avg(fund_amount)) AS avg_grant,
+       count(DISTINCT pi_name) AS unique_pis
+FROM raw_ukri_projects
+WHERE lead_org IS NOT NULL
+GROUP BY lead_org
+ORDER BY sum(fund_amount) DESC NULLS LAST
+LIMIT 20;`
+},
+{
+  section: "UKRI Gateway Deep Dive",
+  title: "UKRI Funding by Research Council",
+  desc: "Breakdown by UKRI Research Council (EPSRC for engineering, MRC for medical, BBSRC for biosciences, etc.).",
+  sql: `SELECT lead_funder AS council,
+       count(*) AS grants,
+       printf('$%,.0f', sum(fund_amount)) AS total_funding,
+       printf('$%,.0f', avg(fund_amount)) AS avg_grant
+FROM raw_ukri_projects
+WHERE lead_funder IS NOT NULL
+GROUP BY lead_funder
+ORDER BY sum(fund_amount) DESC NULLS LAST;`
+},
+{
+  section: "UKRI Gateway Deep Dive",
+  title: "UKRI Grant Status Distribution",
+  desc: "Active vs closed UKRI grants, showing the health of the current UK research portfolio.",
+  sql: `SELECT status,
+       count(*) AS grants,
+       printf('$%,.0f', sum(fund_amount)) AS total_funding,
+       printf('$%,.0f', avg(fund_amount)) AS avg_grant
+FROM raw_ukri_projects
+GROUP BY status
+ORDER BY count(*) DESC;`
+},
+
+// ═══════════════ FUNDING PATTERNS ═══════════════
+{
+  section: "Funding Patterns & Trends",
+  title: "Monthly Funding Cadence (All Sources)",
+  desc: "Which months see the most grant awards? Government fiscal years create seasonal patterns — September (US fiscal year-end) and March/April (EU calls) often spike.",
+  sql: `SELECT monthname(award_date) AS month,
+       month(award_date) AS month_num,
+       source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding
+FROM grant_unified
+WHERE award_date IS NOT NULL
+GROUP BY month, month_num, source
+ORDER BY month_num, source;`
+},
+{
+  section: "Funding Patterns & Trends",
+  title: "Grant Size Distribution — Histogram Buckets",
+  desc: "How are grants distributed by size? Most grants are small (<$500K), but a long tail of mega-grants drives total funding. Essential for understanding the research funding landscape.",
+  sql: `SELECT source,
+       CASE
+         WHEN funding_amount < 50000 THEN '< $50K'
+         WHEN funding_amount < 100000 THEN '$50K-$100K'
+         WHEN funding_amount < 250000 THEN '$100K-$250K'
+         WHEN funding_amount < 500000 THEN '$250K-$500K'
+         WHEN funding_amount < 1000000 THEN '$500K-$1M'
+         WHEN funding_amount < 5000000 THEN '$1M-$5M'
+         WHEN funding_amount < 10000000 THEN '$5M-$10M'
+         ELSE '$10M+'
+       END AS size_bucket,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding
+FROM grant_unified
+WHERE funding_amount > 0
+GROUP BY source, size_bucket
+ORDER BY source, min(funding_amount);`
+},
+{
+  section: "Funding Patterns & Trends",
+  title: "Top 25 Largest Grants Worldwide (All Sources)",
+  desc: "The absolute biggest single grants across all 4 funding bodies. EU framework programme grants and NIH center grants dominate the top spots.",
+  sql: `SELECT source,
+       source_id,
+       title[:90] AS title,
+       institution,
+       printf('$%,.0f', funding_amount) AS amount,
+       currency,
+       award_date,
+       pi_first_name || ' ' || pi_last_name AS pi
+FROM grant_unified
+WHERE funding_amount IS NOT NULL
+ORDER BY funding_amount DESC
+LIMIT 25;`
+},
+
+// ═══════════════ RESEARCHER INSIGHTS ═══════════════
+{
+  section: "Researcher Insights",
+  title: "Most Prolific Principal Investigators (NIH)",
+  desc: "NIH PIs with the most grants. These are the research titans who consistently win competitive federal funding.",
+  sql: `SELECT contact_pi_name AS pi,
+       org_name AS institution,
+       count(*) AS grants,
+       printf('$%,.0f', sum(award_amount)) AS total_funding,
+       count(DISTINCT activity_code) AS grant_types,
+       min(award_notice_date) AS first_award,
+       max(award_notice_date) AS latest_award
+FROM raw_nih_grants
+WHERE contact_pi_name IS NOT NULL AND contact_pi_name != ''
+GROUP BY contact_pi_name, org_name
+ORDER BY count(*) DESC
+LIMIT 25;`
+},
+{
+  section: "Researcher Insights",
+  title: "Most Prolific PIs (UKRI)",
+  desc: "UKRI PIs with the most grants. Shows the leading UK researchers across all research councils.",
+  sql: `SELECT pi_name AS pi,
+       lead_org AS organisation,
+       lead_funder AS council,
+       count(*) AS grants,
+       printf('$%,.0f', sum(fund_amount)) AS total_funding,
+       min(fund_start) AS first_grant,
+       max(fund_start) AS latest_grant
+FROM raw_ukri_projects
+WHERE pi_name IS NOT NULL AND pi_name != ''
+GROUP BY pi_name, lead_org, lead_funder
+ORDER BY count(*) DESC
+LIMIT 25;`
+},
+
+// ═══════════════ GEOGRAPHIC ANALYSIS ═══════════════
+{
+  section: "Geographic Analysis",
+  title: "US State Funding Comparison — NIH vs NSF",
+  desc: "Side-by-side comparison of NIH and NSF funding by US state. Some states specialise in biomedical (NIH) while others lead in engineering/physics (NSF).",
+  sql: `WITH nih_states AS (
+  SELECT org_state AS state,
+         count(*) AS nih_grants,
+         sum(award_amount) AS nih_funding
+  FROM raw_nih_grants WHERE org_state IS NOT NULL AND org_state != ''
+  GROUP BY org_state
+),
+nsf_states AS (
+  SELECT awardee_state AS state,
+         count(*) AS nsf_grants,
+         sum(estimated_total_amt) AS nsf_funding
+  FROM raw_nsf_awards WHERE awardee_state IS NOT NULL AND awardee_state != ''
+  GROUP BY awardee_state
+)
+SELECT COALESCE(n.state, s.state) AS state,
+       COALESCE(n.nih_grants, 0) AS nih_grants,
+       printf('$%,.0f', COALESCE(n.nih_funding, 0)) AS nih_funding,
+       COALESCE(s.nsf_grants, 0) AS nsf_grants,
+       printf('$%,.0f', COALESCE(s.nsf_funding, 0)) AS nsf_funding,
+       printf('$%,.0f', COALESCE(n.nih_funding, 0) + COALESCE(s.nsf_funding, 0)) AS combined
+FROM nih_states n
+FULL OUTER JOIN nsf_states s ON n.state = s.state
+ORDER BY COALESCE(n.nih_funding, 0) + COALESCE(s.nsf_funding, 0) DESC
+LIMIT 25;`
+},
+{
+  section: "Geographic Analysis",
+  title: "European Country Funding — CORDIS vs UKRI",
+  desc: "EU and UK research funding by country. Shows how CORDIS (pan-European) and UKRI (UK-only) funding compare geographically.",
+  sql: `SELECT institution_country AS country,
+       source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding
+FROM grant_unified
+WHERE source IN ('CORDIS', 'UKRI')
+  AND institution_country IS NOT NULL
+GROUP BY country, source
+ORDER BY count(*) DESC
+LIMIT 20;`
+},
+
+// ═══════════════ KEYWORD & TOPIC ANALYSIS ═══════════════
+{
+  section: "Keyword & Topic Analysis",
+  title: "AI & Machine Learning Research Grants (All Sources)",
+  desc: "Grants mentioning artificial intelligence, machine learning, or deep learning across all 4 funding bodies. Shows the global investment in AI research.",
+  sql: `SELECT source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       printf('$%,.0f', avg(funding_amount)) AS avg_grant,
+       min(award_date) AS earliest,
+       max(award_date) AS latest
+FROM grant_unified
+WHERE lower(title) LIKE '%artificial intelligence%'
+   OR lower(title) LIKE '%machine learning%'
+   OR lower(title) LIKE '%deep learning%'
+GROUP BY source
+ORDER BY count(*) DESC;`
+},
+{
+  section: "Keyword & Topic Analysis",
+  title: "Climate & Environment Research Grants",
+  desc: "Grants focused on climate change, sustainability, and environmental science. Shows which funding bodies prioritise green research.",
+  sql: `SELECT source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       printf('$%,.0f', avg(funding_amount)) AS avg_grant
+FROM grant_unified
+WHERE lower(title) LIKE '%climate%'
+   OR lower(title) LIKE '%sustainability%'
+   OR lower(title) LIKE '%environmental%'
+   OR lower(title) LIKE '%carbon%'
+GROUP BY source
+ORDER BY count(*) DESC;`
+},
+{
+  section: "Keyword & Topic Analysis",
+  title: "COVID-19 & Pandemic Research Surge",
+  desc: "Tracks the massive surge in pandemic-related research funding across all sources. Shows how quickly funding bodies pivoted to COVID-19.",
+  sql: `SELECT source,
+       year(award_date) AS yr,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding
+FROM grant_unified
+WHERE (lower(title) LIKE '%covid%'
+   OR lower(title) LIKE '%sars-cov%'
+   OR lower(title) LIKE '%coronavirus%'
+   OR lower(title) LIKE '%pandemic%')
+  AND award_date IS NOT NULL
+GROUP BY source, yr
+ORDER BY yr, source;`
+},
+{
+  section: "Keyword & Topic Analysis",
+  title: "Cancer Research Funding (All Sources)",
+  desc: "Cancer research spans all 4 funding bodies. This shows the global investment in oncology, cancer biology, and cancer therapeutics.",
+  sql: `SELECT source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       printf('$%,.0f', avg(funding_amount)) AS avg_grant
+FROM grant_unified
+WHERE lower(title) LIKE '%cancer%'
+   OR lower(title) LIKE '%oncol%'
+   OR lower(title) LIKE '%tumor%'
+   OR lower(title) LIKE '%tumour%'
+GROUP BY source
+ORDER BY sum(funding_amount) DESC NULLS LAST;`
+},
+
+// ═══════════════ FUNDING EFFICIENCY ═══════════════
+{
+  section: "Funding Efficiency",
+  title: "Average Grant Size by Funder",
+  desc: "Compares median and average grant sizes across funders. NIH R01s, NSF standard grants, ERC grants, and EPSRC grants differ dramatically in scale.",
+  sql: `SELECT source,
+       funder_name,
+       count(*) AS grants,
+       printf('$%,.0f', avg(funding_amount)) AS avg_grant,
+       printf('$%,.0f', median(funding_amount)) AS median_grant,
+       printf('$%,.0f', min(funding_amount)) AS min_grant,
+       printf('$%,.0f', max(funding_amount)) AS max_grant,
+       currency
+FROM grant_unified
+WHERE funding_amount > 0 AND funder_name IS NOT NULL AND funder_name != ''
+GROUP BY source, funder_name, currency
+ORDER BY count(*) DESC
+LIMIT 20;`
+},
+{
+  section: "Funding Efficiency",
+  title: "Grant Duration Analysis (Start to End)",
+  desc: "How long do grants last? Compares the typical grant duration across sources. Longer grants indicate larger, more ambitious programmes.",
+  sql: `SELECT source,
+       count(*) AS grants,
+       round(avg(datediff('month', start_date, end_date)), 1) AS avg_months,
+       round(median(datediff('month', start_date, end_date)), 1) AS median_months,
+       max(datediff('month', start_date, end_date)) AS max_months
+FROM grant_unified
+WHERE start_date IS NOT NULL AND end_date IS NOT NULL
+  AND end_date > start_date
+GROUP BY source
+ORDER BY avg_months DESC;`
+},
+
+// ═══════════════ DATA QUALITY ═══════════════
+{
+  section: "Data Quality & Completeness",
+  title: "Field Completeness Report",
+  desc: "Measures data quality — what percentage of key fields are populated for each source? Higher completeness = more reliable analytics.",
+  sql: `SELECT source,
+       count(*) AS total,
+       round(count(CASE WHEN pi_first_name IS NOT NULL AND pi_first_name != '' THEN 1 END) * 100.0 / count(*), 1) AS pi_name_pct,
+       round(count(CASE WHEN institution IS NOT NULL AND institution != '' THEN 1 END) * 100.0 / count(*), 1) AS institution_pct,
+       round(count(CASE WHEN funding_amount IS NOT NULL AND funding_amount > 0 THEN 1 END) * 100.0 / count(*), 1) AS funding_pct,
+       round(count(CASE WHEN award_date IS NOT NULL THEN 1 END) * 100.0 / count(*), 1) AS date_pct,
+       round(count(CASE WHEN abstract IS NOT NULL AND abstract != '' THEN 1 END) * 100.0 / count(*), 1) AS abstract_pct
+FROM grant_unified
+GROUP BY source
+ORDER BY source;`
+},
+{
+  section: "Data Quality & Completeness",
+  title: "Duplicate Detection",
+  desc: "Checks for potential duplicate grants within each source by looking for identical title + institution + date combinations.",
+  sql: `SELECT source, count(*) AS potential_duplicates
+FROM (
+  SELECT source, title, institution, award_date, count(*) AS n
+  FROM grant_unified
+  WHERE title IS NOT NULL
+  GROUP BY source, title, institution, award_date
+  HAVING count(*) > 1
+)
+GROUP BY source
+ORDER BY potential_duplicates DESC;`
+},
+
+// ═══════════════ CUSTOM / FREEFORM ═══════════════
+{
+  section: "Advanced Cross-Source Intelligence",
+  title: "Global Research Funding Power Rankings",
+  desc: "Ranks every institution worldwide by total funding across ALL sources. Institutions appearing in multiple sources get a 'global reach' bonus. The definitive global research funding leaderboard.",
+  sql: `WITH ranked AS (
+  SELECT institution,
+         count(*) AS grants,
+         count(DISTINCT source) AS sources,
+         list(DISTINCT source ORDER BY source) AS funding_bodies,
+         sum(funding_amount) AS raw_total,
+         printf('$%,.0f', sum(funding_amount)) AS total_funding,
+         round(avg(funding_amount), 0) AS avg_grant
+  FROM grant_unified
+  WHERE institution IS NOT NULL AND institution != '' AND funding_amount > 0
+  GROUP BY institution
+)
+SELECT *,
+       CASE sources WHEN 4 THEN 'ELITE' WHEN 3 THEN 'GLOBAL' WHEN 2 THEN 'MULTI' ELSE 'SINGLE' END AS tier
+FROM ranked
+ORDER BY raw_total DESC
+LIMIT 30;`
+},
+{
+  section: "Advanced Cross-Source Intelligence",
+  title: "Quarter-by-Quarter Funding Velocity",
+  desc: "Tracks funding velocity (grants per quarter) across all 4 sources. Detects acceleration/deceleration in research investment — key for policy analysis.",
+  sql: `SELECT year(award_date) AS yr,
+       quarter(award_date) AS qtr,
+       source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       printf('$%,.0f', avg(funding_amount)) AS avg_grant
+FROM grant_unified
+WHERE award_date IS NOT NULL AND year(award_date) >= 2015
+GROUP BY yr, qtr, source
+ORDER BY yr DESC, qtr DESC, source;`
+},
+{
+  section: "Advanced Cross-Source Intelligence",
+  title: "US vs EU vs UK — Macro Funding Battle",
+  desc: "The ultimate geopolitical comparison: total US research funding (NIH + NSF) vs EU (CORDIS) vs UK (UKRI). Who invests more in science?",
+  sql: `SELECT
+  CASE source
+    WHEN 'NIH' THEN 'United States'
+    WHEN 'NSF' THEN 'United States'
+    WHEN 'CORDIS' THEN 'European Union'
+    WHEN 'UKRI' THEN 'United Kingdom'
+  END AS region,
+  count(*) AS grants,
+  printf('$%,.0f', sum(funding_amount)) AS total_funding,
+  printf('$%,.0f', avg(funding_amount)) AS avg_grant,
+  count(DISTINCT institution) AS institutions
+FROM grant_unified
+WHERE funding_amount > 0
+GROUP BY region
+ORDER BY sum(funding_amount) DESC;`
+},
+{
+  section: "Advanced Cross-Source Intelligence",
+  title: "Hot Research Topics — Title Word Frequency",
+  desc: "Extracts the most common significant words from grant titles across all sources. Reveals trending research areas globally.",
+  sql: `WITH words AS (
+  SELECT unnest(string_split(lower(regexp_replace(title, '[^a-zA-Z ]', '', 'g')), ' ')) AS word,
+         source, funding_amount
+  FROM grant_unified
+  WHERE title IS NOT NULL
+)
+SELECT word,
+       count(*) AS frequency,
+       count(DISTINCT source) AS sources,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding
+FROM words
+WHERE length(word) > 4
+  AND word NOT IN ('study', 'using', 'based', 'their', 'through', 'between',
+                   'research', 'grant', 'award', 'project', 'programme', 'analysis',
+                   'development', 'approach', 'understanding', 'novel', 'toward',
+                   'towards', 'effects', 'impact', 'implications', 'model', 'models')
+GROUP BY word
+HAVING count(*) > 10
+ORDER BY count(*) DESC
+LIMIT 40;`
+},
+{
+  section: "Advanced Cross-Source Intelligence",
+  title: "Neuroscience Research — Global Landscape",
+  desc: "Neuroscience/brain research funding across all 4 bodies. NIH's BRAIN Initiative, EU's Human Brain Project, and UK's MRC neuroscience portfolio compared.",
+  sql: `SELECT source,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       printf('$%,.0f', avg(funding_amount)) AS avg_grant,
+       min(award_date) AS earliest,
+       max(award_date) AS latest
+FROM grant_unified
+WHERE lower(title) LIKE '%neurosci%'
+   OR lower(title) LIKE '%brain%'
+   OR lower(title) LIKE '%neural%'
+   OR lower(title) LIKE '%cognit%'
+GROUP BY source
+ORDER BY sum(funding_amount) DESC NULLS LAST;`
+},
+{
+  section: "Advanced Cross-Source Intelligence",
+  title: "Quantum Computing & Quantum Science Grants",
+  desc: "The global quantum race — which nations and institutions are investing in quantum technologies?",
+  sql: `SELECT source,
+       institution,
+       count(*) AS grants,
+       printf('$%,.0f', sum(funding_amount)) AS total_funding,
+       min(award_date) AS first,
+       max(award_date) AS latest
+FROM grant_unified
+WHERE lower(title) LIKE '%quantum%'
+GROUP BY source, institution
+ORDER BY sum(funding_amount) DESC NULLS LAST
+LIMIT 25;`
+},
+
+// ═══════════════ STRATEGIC INSIGHTS ═══════════════
+{
+  section: "Strategic Insights",
+  title: "NIH R01 vs R21 — The Two Pillars of US Biomedical Research",
+  desc: "R01 (full research grant, $250K+/yr) vs R21 (exploratory, $275K total). Shows the funding pyramid that drives American biomedical science.",
+  sql: `SELECT activity_code,
+       count(*) AS grants,
+       printf('$%,.0f', sum(award_amount)) AS total_funding,
+       printf('$%,.0f', avg(award_amount)) AS avg_grant,
+       printf('$%,.0f', median(award_amount)) AS median_grant,
+       count(DISTINCT org_name) AS institutions,
+       count(DISTINCT contact_pi_name) AS unique_pis
+FROM raw_nih_grants
+WHERE activity_code IN ('R01', 'R21', 'R03', 'R15', 'R43', 'R44', 'U01', 'P01', 'P30', 'T32', 'K01', 'K23', 'K99', 'F31', 'F32')
+GROUP BY activity_code
+ORDER BY sum(award_amount) DESC;`
+},
+{
+  section: "Strategic Insights",
+  title: "New vs Renewal Grants — Innovation Pulse",
+  desc: "Ratio of new grants to renewals/continuations. A high new-grant ratio signals an expanding research frontier.",
+  sql: `SELECT source,
+       count(CASE WHEN active THEN 1 END) AS active_grants,
+       count(CASE WHEN NOT active THEN 1 END) AS inactive_grants,
+       round(count(CASE WHEN active THEN 1 END) * 100.0 / count(*), 1) AS active_pct,
+       printf('$%,.0f', sum(CASE WHEN active THEN funding_amount ELSE 0 END)) AS active_funding,
+       printf('$%,.0f', sum(CASE WHEN NOT active THEN funding_amount ELSE 0 END)) AS inactive_funding
+FROM grant_unified
+GROUP BY source
+ORDER BY source;`
+},
+{
+  section: "Strategic Insights",
+  title: "Emerging Research Themes (2023-2025 vs 2015-2018)",
+  desc: "Compares keyword frequency in grant titles between recent years and earlier years. Rising keywords indicate emerging research frontiers.",
+  sql: `WITH recent AS (
+  SELECT unnest(string_split(lower(regexp_replace(title, '[^a-zA-Z ]', '', 'g')), ' ')) AS word
+  FROM grant_unified WHERE year(award_date) >= 2023
+),
+early AS (
+  SELECT unnest(string_split(lower(regexp_replace(title, '[^a-zA-Z ]', '', 'g')), ' ')) AS word
+  FROM grant_unified WHERE year(award_date) BETWEEN 2015 AND 2018
+),
+recent_counts AS (
+  SELECT word, count(*) AS recent_n FROM recent WHERE length(word) > 4 GROUP BY word HAVING count(*) > 5
+),
+early_counts AS (
+  SELECT word, count(*) AS early_n FROM early WHERE length(word) > 4 GROUP BY word HAVING count(*) > 5
+)
+SELECT r.word,
+       r.recent_n AS "2023-25",
+       COALESCE(e.early_n, 0) AS "2015-18",
+       CASE WHEN COALESCE(e.early_n, 1) > 0
+            THEN round(r.recent_n * 1.0 / COALESCE(e.early_n, 1), 2) END AS growth_ratio
+FROM recent_counts r
+LEFT JOIN early_counts e ON r.word = e.word
+WHERE r.word NOT IN ('study','using','based','their','through','between','research',
+                     'grant','award','project','analysis','development','approach',
+                     'understanding','novel','toward','towards','effects','impact','model','models')
+ORDER BY growth_ratio DESC NULLS LAST
+LIMIT 30;`
+},
+
+// ═══════════════ CSV EXPORT ═══════════════
+{
+  section: "CSV Export",
+  title: "Export Unified Grants to CSV",
+  desc: "Run this query, then copy the results to get a CSV-ready dataset of all grants. Useful for further analysis in Excel, Python, or R.",
+  sql: `SELECT source, source_id, title,
+       pi_first_name, pi_last_name, institution,
+       institution_country, funding_amount, currency,
+       award_date, start_date, end_date,
+       funder_name, active
+FROM grant_unified
+ORDER BY award_date DESC
+LIMIT 5000;`
+},
+
+{
+  section: "Custom Query",
+  title: "Write Your Own SQL",
+  desc: "Use this editor to run any SQL against the grant warehouse. Tables: raw_nih_grants, raw_nsf_awards, raw_cordis_projects, raw_ukri_projects, grant_unified, etl_runs, etl_chunks.",
+  sql: `-- Write any SQL query here!
+-- Available tables:
+--   raw_nih_grants, raw_nsf_awards,
+--   raw_cordis_projects, raw_ukri_projects,
+--   grant_unified (unified view),
+--   etl_runs, etl_chunks
+
+SELECT * FROM grant_unified LIMIT 10;`
+}
+];
+
+// ─────────────────────────────────────────────
+// Render UI
+// ─────────────────────────────────────────────
+const sectionsDiv = document.getElementById('sections');
+const tocGrid = document.getElementById('toc-grid');
+const sectionMap = new Map();
+let queryIndex = 0;
+
+QUERIES.forEach((q, i) => {
+  if (!sectionMap.has(q.section)) {
+    sectionMap.set(q.section, []);
+  }
+  sectionMap.get(q.section).push({...q, index: i});
+});
+
+// Build TOC and sections
+let sectionCount = 0;
+sectionMap.forEach((queries, sectionName) => {
+  sectionCount++;
+  const sectionId = 'sec-' + sectionName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+  // TOC entry
+  const tocLink = document.createElement('a');
+  tocLink.href = '#' + sectionId;
+  tocLink.textContent = sectionName + ` (${queries.length})`;
+  tocGrid.appendChild(tocLink);
+
+  // Section container
+  const section = document.createElement('div');
+  section.className = 'section';
+  section.id = sectionId;
+
+  const header = document.createElement('div');
+  header.className = 'section-header';
+  header.innerHTML = `<h2>${sectionName}</h2><span class="count">${queries.length} queries</span>`;
+
+  const runAllBtn = document.createElement('button');
+  runAllBtn.className = 'run-all-btn';
+  runAllBtn.textContent = '▶▶ Run All';
+  runAllBtn.onclick = () => {
+    queries.forEach(q => runQuery(q.index));
+  };
+  header.appendChild(runAllBtn);
+  section.appendChild(header);
+
+  // Query cards
+  queries.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'query-card';
+    card.id = 'q-' + q.index;
+    card.innerHTML = `
+      <div class="query-title"><h3>#${q.index + 1} — ${q.title}</h3></div>
+      <div class="query-desc">${q.desc}</div>
+      <div class="query-sql">
+        <textarea id="sql-${q.index}" rows="${Math.max(4, q.sql.split('\n').length)}">${q.sql}</textarea>
+      </div>
+      <div class="query-actions">
+        <button class="btn btn-run" onclick="window.runQuery(${q.index})">▶ Run Query</button>
+        <button class="btn btn-copy" onclick="window.copyQuery(${q.index})">📋 Copy</button>
+        <button class="btn btn-reset" onclick="window.resetQuery(${q.index})">↩ Reset</button>
+        <span class="query-time" id="time-${q.index}"></span>
+      </div>
+      <div class="result-container" id="result-${q.index}">
+        <div class="result-placeholder">Click ▶ Run Query to see results</div>
+      </div>
+    `;
+    section.appendChild(card);
+  });
+
+  sectionsDiv.appendChild(section);
+});
+
+document.getElementById('stat-queries').textContent = QUERIES.length;
+document.getElementById('stat-sections').textContent = sectionCount;
+
+// ─────────────────────────────────────────────
+// DuckDB WASM init
+// ─────────────────────────────────────────────
+let db, conn;
+
+async function initDB() {
+  const msg = document.getElementById('loading-msg');
+  const detail = document.getElementById('loading-detail');
+
+  msg.textContent = 'Initialising DuckDB WASM engine...';
+  const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+  const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+  const worker_url = URL.createObjectURL(
+    new Blob([`importScripts("${bundle.mainWorker}");`], {type: 'text/javascript'})
+  );
+  const worker = new Worker(worker_url);
+  const logger = new duckdb.ConsoleLogger();
+  db = new duckdb.AsyncDuckDB(logger, worker);
+  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  URL.revokeObjectURL(worker_url);
+
+  // Load parquet files
+  const baseUrl = window.location.href.replace(/\/[^/]*$/, '/');
+  const files = [
+    'raw_nih_grants.parquet',
+    'raw_nsf_awards.parquet',
+    'raw_cordis_projects.parquet',
+    'raw_ukri_projects.parquet',
+    'etl_runs.parquet',
+    'etl_chunks.parquet'
+  ];
+
+  conn = await db.connect();
+  let totalBytes = 0;
+  let loaded = 0;
+
+  for (const f of files) {
+    loaded++;
+    msg.textContent = `Loading data file ${loaded}/${files.length}...`;
+    detail.textContent = f;
+    try {
+      const url = baseUrl + f;
+      await db.registerFileURL(f, url, duckdb.DuckDBDataProtocol.HTTP, false);
+      const tbl = f.replace('.parquet', '');
+      await conn.query(`CREATE TABLE ${tbl} AS SELECT * FROM '${f}'`);
+    } catch(e) {
+      console.warn('Could not load ' + f + ':', e.message);
+    }
+  }
+
+  msg.textContent = 'Creating unified view...';
+  detail.textContent = '';
+
+  // Create the unified view
+  try {
+    await conn.query(`
+      CREATE OR REPLACE VIEW grant_unified AS
+      SELECT 'NIH' AS source, project_num AS source_id, title,
+             contact_pi_name AS pi_first_name, '' AS pi_last_name,
+             org_name AS institution, org_state AS institution_state,
+             org_country AS institution_country, award_amount AS funding_amount,
+             'USD' AS currency, award_notice_date AS award_date,
+             budget_start AS start_date, budget_end AS end_date,
+             '' AS programme_code, ic_name AS funder_name, abstract_text AS abstract,
+             'https://reporter.nih.gov/project-details/' || core_project_num AS url,
+             CASE WHEN is_active THEN true ELSE false END AS active,
+             _loaded_at
+      FROM raw_nih_grants
+      UNION ALL
+      SELECT 'NSF', nsf_id, title, pi_first_name, pi_last_name,
+             awardee_name, awardee_state, awardee_country_code,
+             estimated_total_amt, 'USD', start_date, start_date, exp_date,
+             fund_program_name, agency, abstract_text,
+             'https://www.nsf.gov/awardsearch/showAward?AWD_ID=' || nsf_id,
+             CASE WHEN active_awd = 'true' THEN true ELSE false END,
+             _loaded_at
+      FROM raw_nsf_awards
+      UNION ALL
+      SELECT 'CORDIS', cordis_id, title, '', '', coordinator,
+             '', coordinator_country, ec_contribution, 'EUR',
+             start_date, start_date, end_date, programme_code,
+             funding_scheme, objective,
+             'https://cordis.europa.eu/project/id/' || cordis_id,
+             CASE WHEN status = 'SIGNED' THEN true ELSE false END,
+             _loaded_at
+      FROM raw_cordis_projects
+      UNION ALL
+      SELECT 'UKRI', grant_reference, title, pi_name, '',
+             lead_org, '', '', fund_amount, 'GBP',
+             fund_start, fund_start, fund_end, grant_category,
+             lead_funder, abstract_text,
+             'https://gtr.ukri.org/projects?ref=' || grant_reference,
+             CASE WHEN status = 'Active' THEN true ELSE false END,
+             _loaded_at
+      FROM raw_ukri_projects;
+    `);
+  } catch(e) {
+    console.warn('View creation error:', e.message);
+  }
+
+  // Update stats
+  try {
+    const r = await conn.query("SELECT count(*) AS n FROM grant_unified");
+    const n = r.toArray()[0].n;
+    document.getElementById('stat-rows').textContent = Number(n).toLocaleString();
+  } catch(e) {}
+
+  document.getElementById('loading').classList.add('hidden');
+}
+
+// ─────────────────────────────────────────────
+// Query execution
+// ─────────────────────────────────────────────
+window.runQuery = async function(idx) {
+  const sql = document.getElementById('sql-' + idx).value;
+  const resultDiv = document.getElementById('result-' + idx);
+  const timeSpan = document.getElementById('time-' + idx);
+  resultDiv.innerHTML = '<div class="result-placeholder">Running...</div>';
+  timeSpan.textContent = '';
+
+  const t0 = performance.now();
+  try {
+    const result = await conn.query(sql);
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+    timeSpan.textContent = elapsed + 's';
+
+    const rows = result.toArray();
+    const cols = result.schema.fields.map(f => f.name);
+
+    if (rows.length === 0) {
+      resultDiv.innerHTML = '<div class="result-placeholder">Query returned 0 rows</div>';
+      return;
+    }
+
+    let html = '<table class="result-table"><thead><tr>';
+    cols.forEach(c => { html += `<th>${c}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    const maxRows = 200;
+    const displayRows = rows.slice(0, maxRows);
+    displayRows.forEach(row => {
+      html += '<tr>';
+      cols.forEach(c => {
+        let val = row[c];
+        if (val === null || val === undefined) val = '<span style="color:var(--muted)">NULL</span>';
+        else if (typeof val === 'bigint') val = Number(val).toLocaleString();
+        else val = String(val);
+        html += `<td>${val}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    html += `<div class="result-count">${rows.length > maxRows ? maxRows + ' of ' : ''}${rows.length} rows · ${elapsed}s</div>`;
+    resultDiv.innerHTML = html;
+
+  } catch(e) {
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+    timeSpan.textContent = elapsed + 's';
+    resultDiv.innerHTML = `<div class="result-error">ERROR: ${e.message}</div>`;
+  }
+};
+
+window.copyQuery = function(idx) {
+  const sql = document.getElementById('sql-' + idx).value;
+  navigator.clipboard.writeText(sql);
+};
+
+window.resetQuery = function(idx) {
+  document.getElementById('sql-' + idx).value = QUERIES[idx].sql;
+};
+
+// Boot
+initDB().catch(e => {
+  document.getElementById('loading').innerHTML =
+    `<p style="color:var(--red)">Failed to initialise DuckDB: ${e.message}</p>
+     <p style="color:var(--muted);margin-top:8px">Try refreshing or using Chrome/Edge.</p>`;
+});
+</script>
+</body>
+</html>
