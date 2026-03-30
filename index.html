@@ -267,6 +267,79 @@ const SEC_STYLE = {
    ═══════════════════════════════════════════════════════════════ */
 const Q = [
 
+// ── SPREADSHEET EXPORTS — same 9 columns as the pipeline Excel outputs ──
+{ section:"Database Overview", apis:["NIH"],
+  title:"📄 NIH Grants — Spreadsheet Columns",
+  desc:"Returns the exact same 9 columns (FIRST, LAST, INSTITUTION, TITLE, FUNDING_AMT, CURRENCY, AWARD_DATE, SOURCE, LINK) as the NIH_*.xlsx pipeline output. Change LIMIT or add WHERE clauses to filter.",
+  sql:`SELECT
+    pi_first_name                                                 AS FIRST,
+    pi_last_name                                                  AS LAST,
+    org_name                                                      AS INSTITUTION,
+    project_title                                                 AS TITLE,
+    award_amount                                                  AS FUNDING_AMT,
+    'USD'                                                         AS CURRENCY,
+    award_notice_date                                             AS AWARD_DATE,
+    'NIH'                                                         AS SOURCE,
+    project_detail_url                                            AS LINK
+FROM raw_nih_grants
+WHERE award_amount IS NOT NULL
+ORDER BY award_notice_date DESC
+LIMIT 100;` },
+
+{ section:"Database Overview", apis:["NSF"],
+  title:"📄 NSF Awards — Spreadsheet Columns",
+  desc:"Returns the exact same 9 columns as the NSF_*.xlsx pipeline output.",
+  sql:`SELECT
+    pi_first_name                                                 AS FIRST,
+    pi_last_name                                                  AS LAST,
+    awardee_name                                                  AS INSTITUTION,
+    title                                                         AS TITLE,
+    estimated_total_amt                                           AS FUNDING_AMT,
+    'USD'                                                         AS CURRENCY,
+    start_date                                                    AS AWARD_DATE,
+    'NSF'                                                         AS SOURCE,
+    'https://www.nsf.gov/awardsearch/showAward?AWD_ID=' || award_id AS LINK
+FROM raw_nsf_awards
+WHERE estimated_total_amt IS NOT NULL
+ORDER BY start_date DESC
+LIMIT 100;` },
+
+{ section:"Database Overview", apis:["CORDIS"],
+  title:"📄 CORDIS EU Projects — Spreadsheet Columns",
+  desc:"Returns the exact same 9 columns as the CORDIS_*.xlsx pipeline output. FIRST/LAST are NULL as CORDIS does not expose PI names via the API.",
+  sql:`SELECT
+    NULL                                                          AS FIRST,
+    NULL                                                          AS LAST,
+    coordinator_name                                              AS INSTITUTION,
+    title                                                         AS TITLE,
+    ec_max_contribution                                           AS FUNDING_AMT,
+    'EUR'                                                         AS CURRENCY,
+    start_date                                                    AS AWARD_DATE,
+    'CORDIS'                                                      AS SOURCE,
+    'https://cordis.europa.eu/project/id/' || CAST(project_id AS VARCHAR) AS LINK
+FROM raw_cordis_projects
+WHERE ec_max_contribution IS NOT NULL
+ORDER BY start_date DESC
+LIMIT 100;` },
+
+{ section:"Database Overview", apis:["UKRI"],
+  title:"📄 UKRI Gateway Projects — Spreadsheet Columns",
+  desc:"Returns the exact same 9 columns as the UKRI_*.xlsx pipeline output.",
+  sql:`SELECT
+    pi_first_name                                                 AS FIRST,
+    pi_last_name                                                  AS LAST,
+    lead_org_name                                                 AS INSTITUTION,
+    title                                                         AS TITLE,
+    fund_amount                                                   AS FUNDING_AMT,
+    'GBP'                                                         AS CURRENCY,
+    fund_start                                                    AS AWARD_DATE,
+    'UKRI'                                                        AS SOURCE,
+    'https://gtr.ukri.org/projects?ref=' || grant_reference       AS LINK
+FROM raw_ukri_projects
+WHERE fund_amount IS NOT NULL
+ORDER BY fund_start DESC
+LIMIT 100;` },
+
 // ── DATABASE OVERVIEW ──
 { section:"Database Overview", apis:["NIH","NSF","CORDIS","UKRI","ETL"],
   title:"Table Inventory & Row Counts",
